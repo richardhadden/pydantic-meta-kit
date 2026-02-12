@@ -85,7 +85,7 @@ Cat._meta.number == 2 # <- Inherited from Animal._meta
 
 Note that type annotations are `Annotated` with additional `MetaRules` to determine how inheritance will work.
 
-### MetaRules rules
+### `MetaRules` rules
 
 The `MetaRules` enum defines three rules for how inheritance should work.
 
