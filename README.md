@@ -20,7 +20,7 @@ class Cat(Animal):
     pass
 ```
 
-And you would like to define a `_meta` attribute on the classes to store some miscellaneous configuration data.
+And you would like to define a `_meta` class attribute on the classes to store and access some miscellaneous configuration data.
 
 You would also like to not have to write a `_meta` attribute on every single class in your hierarchy.
 
@@ -52,6 +52,8 @@ class MyMeta(BaseMeta):
 Then, inherit from `WithMeta` generic, i.e. `WithMeta[<YourMetaClass>]`:
 
 ```python
+from typing import ClassVar
+
 from pydantic import BaseModel
 from pydantic_meta_kit import WithMeta
 
@@ -62,7 +64,7 @@ class Root(BaseModel):
     pass
 
 class Entity(Root, WithMeta[MyMeta]):
-    _meta = MyMeta(abstract=True, things=["a", "b"], number=1)
+    _meta: ClassVar[MyMeta] = MyMeta(abstract=True, things=["a", "b"], number=1)
 
 class Animal(Entity):
     _meta = MyMeta(number=2)
@@ -83,8 +85,9 @@ Cat._meta.abstract == True # <- Explicitly set to True
 Cat._meta.things == ["a", "b", "c", "d"] # <- Values accumulated
 Cat._meta.number == 2 # <- Inherited from Animal._meta
 ```
+n.b. `Entity._meta` is annotated with `ClassVar[MyMeta]`. This is not strictly necessary (some other type assigned to `_meta` in a subclass will be caught at runtime) but this provides nice validation in your editor.
 
-Note that type annotations are `Annotated` with additional `MetaRules` to determine how inheritance will work.
+Type annotations are `Annotated` with additional `MetaRules` to determine how inheritance will work.
 
 ### `MetaRules` rules
 

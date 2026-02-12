@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, ClassVar
 
 from pydantic import BaseModel, Field
 from pytest import raises
@@ -255,7 +255,7 @@ def test_meta_on_class():
         pass
 
     class Entity(Root, ArbitraryMixin, WithMeta[SomeMeta]):
-        _meta = SomeMeta(
+        _meta: ClassVar[SomeMeta] = SomeMeta(
             abstract=True,
             things=["one"],
             number=1,
