@@ -18,6 +18,9 @@ class Animal(Entity):
 
 class Cat(Animal):
     pass
+
+class TabbyCat(Cat):
+    pass
 ```
 
 And you would like to define a `_meta` class attribute on the classes to store and access some miscellaneous configuration data.
@@ -65,23 +68,32 @@ class Entity(Root, WithMeta[MyMeta]):
     _meta: ClassVar[MyMeta] = MyMeta(abstract=True, things=["a", "b"], number=1)
 
 class Animal(Entity):
-    _meta = MyMeta(number=2)
+    pass # <- No need to define _meta here
 
 class Cat(Animal):
-    _meta = MyMeta(abstract=True, things=["c", "d"])
+    _meta = MyMeta(abstract=True, number=2)
+
+class TabbyCat(Cat):
+    _meta = MyMeta(things=["c", "d"])
+
+
 
 
 Entity._meta.abstract == True
 Entity._meta.things = ["a", "b"]
 Entity._meta.number = 1
 
-Animal._meta.abstract == False # <- Does not inherit; reset to default
-Animal._meta.things == ["a", "b"] # <- Inherited from Entity._meta
-Animal._meta.number == 2 # <- Value overridden
+Animal._meta.abstract == False      # <- Does not inherit; reset to default
+Animal._meta.things == ["a", "b"]   # <- Inherited from Entity.things
+Animal._meta.number == 1            # <- Inherited from Entity.number
 
-Cat._meta.abstract == True # <- Explicitly set to True
-Cat._meta.things == ["a", "b", "c", "d"] # <- Values accumulated
-Cat._meta.number == 2 # <- Inherited from Animal._meta
+Cat._meta.abstract == True          # <- Explicitly set to True
+Cat._meta.things == ["a", "b"]      # <- Inherited from Entity.things
+Cat._meta.number == 2               # <- Explicitly set to 2
+
+TabbyCat._meta.abstract == False     # <- Does not inherit; reset to default
+TabbyCat._meta.things == ["a", "b", "c", "d"] # <- Accumulated from Entity.things and TabbyCat.things
+TabbyCat._meta.number == 2          # <- Inherited from Cat.number
 ```
 n.b. `Entity._meta` is annotated with `ClassVar[MyMeta]`. This is not strictly necessary (some other type assigned to `_meta` in a subclass will be caught at runtime) but this provides nice validation in your editor.
 
