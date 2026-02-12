@@ -53,6 +53,7 @@ Then, inherit from `WithMeta` generic, i.e. `WithMeta[<YourMetaClass>]`:
 
 ```python
 from pydantic import BaseModel
+from pydantic_meta_kit import WithMeta
 
 class Root(BaseModel):
     """If you have some Root object doing some other global things, it
