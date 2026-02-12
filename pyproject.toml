@@ -1,0 +1,21 @@
+[project]
+name = "pydantic-meta-kit"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Richard Hadden", email = "richard.hadden@oeaw.ac.at" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "pydantic>=2.12.5",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]

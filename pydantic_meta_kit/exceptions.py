@@ -1,0 +1,2 @@
+class PydanticMetaKitException(Exception):
+    pass
