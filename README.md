@@ -77,8 +77,6 @@ class Ragdoll(Cat):
     _meta = MyMeta(things=["c", "d"])
 
 
-
-
 Entity._meta.abstract is True
 Entity._meta.things = ["a", "b"]
 Entity._meta.number = 1
@@ -120,4 +118,5 @@ does not need to be provided in all the subclasses. Whereas just `number: int` w
 
 ### Would be nice to...
 
+- Have it work on classes that are *not* Pydantic classes...
 - Have some custom `MetaRule`-type options, passed as a function...
