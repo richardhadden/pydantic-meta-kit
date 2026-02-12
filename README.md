@@ -8,7 +8,7 @@ You have some Pydantic classes:
 
 ```python
 class Root(BaseModel):
-        pass
+    pass
 
 class Entity(Root):
     pass
