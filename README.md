@@ -96,6 +96,6 @@ The `META_RULES` enum defines three rules for how inheritance should work.
 The `INHERIT_VALUE` type and `INHERIT_VALUE.AS_DEFAULT` exist to make an argument optional on a child class's `_meta`. Otherwise, Pydantic will demand that you provide a value. i.e.
 
 ```python
-    number: int | INHERIT_VALUE = INHERIT_VALUE.AS_DEFAULT
+number: int | INHERIT_VALUE = INHERIT_VALUE.AS_DEFAULT
 ```
 does not need to be provided in all the subclasses. Whereas just `number: int` will obviously be demanded by Pydantic when you try to initialise a child class's `_meta`.
