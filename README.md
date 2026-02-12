@@ -47,7 +47,7 @@ class MyMeta(BaseMeta):
     number: int | InheritValue = InheritValue.AS_DEFAULT
 ```
 
-Then, inherit from `WithMeta` generic, i.e. `WithMeta[<YourMetaClass>]`:
+Then, inherit have your top level class inherit from the `WithMeta` generic, i.e. `WithMeta[<YourMetaClass>]`:
 
 ```python
 from typing import ClassVar
