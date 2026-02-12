@@ -20,7 +20,7 @@ class Cat(Animal):
     pass
 ```
 
-You would like to define a `_meta` attribute on the classes to store some miscellaneous configuration data.
+And you would like to define a `_meta` attribute on the classes to store some miscellaneous configuration data.
 
 You would also like to not have to write a `_meta` attribute on every single class in your hierarchy.
 
