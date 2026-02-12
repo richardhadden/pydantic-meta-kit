@@ -103,3 +103,8 @@ The `InheritValue` type and `InheritValue.AS_DEFAULT` exist to make an argument 
 number: int | InheritValue = InheritValue.AS_DEFAULT
 ```
 does not need to be provided in all the subclasses. Whereas just `number: int` will obviously be demanded by Pydantic when you try to initialise a child class's `_meta`, even if you don't need to define it again.
+
+
+### Would be nice to...
+
+- Have some custom `MetaRule`-type options, passed as a function...
