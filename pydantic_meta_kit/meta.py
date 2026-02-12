@@ -10,7 +10,7 @@ from pydantic_core import PydanticUndefinedType
 from pydantic_meta_kit.exceptions import PydanticMetaKitException
 
 
-class META_RULES(Enum):
+class MetaRules(Enum):
     DO_NOT_INHERIT = 0
     """Do not inherit this value; instead reset to default when inherited"""
     ACCUMULATE = 1
@@ -19,12 +19,12 @@ class META_RULES(Enum):
     """Follow normal inheritance procedure"""
 
 
-def get_field_rule(field: FieldInfo) -> META_RULES:
+def get_field_rule(field: FieldInfo) -> MetaRules:
     """Extracts the correct `META_RULE` from a field definition"""
     if field.metadata:
         return field.metadata[0]
     else:
-        return META_RULES.INHERIT_OR_OVERRIDE
+        return MetaRules.INHERIT_OR_OVERRIDE
 
 
 class InheritValueMetaclass(type):
@@ -42,7 +42,7 @@ class InheritValueMetaclass(type):
         return cls._singleton_instance
 
 
-class INHERIT_VALUE(metaclass=InheritValueMetaclass):
+class InheritValue(metaclass=InheritValueMetaclass):
     """Type marker for field that does not need to be declared on a `_meta` object,
     but must be inherited from a parent's `_meta`.
 
@@ -127,7 +127,7 @@ class BaseMeta(BaseModel):
         accumulations_invalid: list[str] = []
         for field_name, model_field in cls.model_fields.items():
             # Checks that all fields that are DO_NOT_INHERIT provide a default value
-            if get_field_rule(model_field) == META_RULES.DO_NOT_INHERIT and (
+            if get_field_rule(model_field) == MetaRules.DO_NOT_INHERIT and (
                 isinstance(model_field.default, PydanticUndefinedType)
                 or isinstance(
                     model_field.get_default(call_default_factory=True),
@@ -137,7 +137,7 @@ class BaseMeta(BaseModel):
                 do_not_inherits_invalid.append(field_name)
 
             # Checks that fields that are ACCUMULATE are of type Iterable
-            if get_field_rule(model_field) == META_RULES.ACCUMULATE and (
+            if get_field_rule(model_field) == MetaRules.ACCUMULATE and (
                 (
                     inspect.isclass(model_field.annotation)
                     and not issubclass(model_field.annotation, Iterable)
@@ -178,11 +178,11 @@ class BaseMeta(BaseModel):
         merged_dict: dict[str, Any] = {}
 
         for field_name, model_field in self.__class__.model_fields.items():
-            field_rule: META_RULES = get_field_rule(model_field)
+            field_rule: MetaRules = get_field_rule(model_field)
 
             # If field should be accumulated, use the _merge_field function
             # to do it
-            if field_rule == META_RULES.ACCUMULATE:
+            if field_rule == MetaRules.ACCUMULATE:
                 merged_dict[field_name] = _merge_fields(
                     field_type=type(model_field.get_default(call_default_factory=True)),
                     left=left_dict[field_name],
@@ -197,7 +197,7 @@ class BaseMeta(BaseModel):
             # should inherit
             elif (
                 not child or field_name not in child._initialised_directly
-            ) and field_rule != META_RULES.DO_NOT_INHERIT:
+            ) and field_rule != MetaRules.DO_NOT_INHERIT:
                 merged_dict[field_name] = left_dict[field_name]
 
         # Pile everything into a new meta object and return
@@ -306,7 +306,7 @@ class WithMeta[T: BaseMeta](BaseModel):
         # Check there are no INHERIT_VALUE fields that somewhere in the chain
         # have not actually been able to inherit a value
         for k, v in cls._meta.model_dump().items():
-            if isinstance(v, INHERIT_VALUE):
+            if isinstance(v, InheritValue):
                 raise PydanticMetaKitException(
                     f"<{cls.__name__}>: field '{k}' of _meta instance can inherit a value, "
                     "but this is never declared in the object hierarchy"

@@ -3,19 +3,19 @@ from typing import Annotated
 from pydantic import BaseModel, Field
 from pytest import raises
 
-from pydantic_meta_kit.exceptions import PydanticMetaKitException
-from pydantic_meta_kit.meta import (
-    INHERIT_VALUE,
-    META_RULES,
+from pydantic_meta_kit import (
     BaseMeta,
+    InheritValue,
+    MetaRules,
     WithMeta,
 )
+from pydantic_meta_kit.exceptions import PydanticMetaKitException
 
 
 def test_meta_add_with_none():
 
     class SomeMeta(BaseMeta):
-        abstract: Annotated[bool, META_RULES.DO_NOT_INHERIT] = False
+        abstract: Annotated[bool, MetaRules.DO_NOT_INHERIT] = False
         number: int
 
     a = SomeMeta(number=1, abstract=True)
@@ -48,7 +48,7 @@ def test_meta_initialised_directly_vals():
     """
 
     class SomeMeta(BaseMeta):
-        number: Annotated[int, META_RULES.INHERIT_OR_OVERRIDE] = 1
+        number: Annotated[int, MetaRules.INHERIT_OR_OVERRIDE] = 1
 
     a = SomeMeta()
     b = SomeMeta(number=1)
@@ -60,7 +60,7 @@ def test_meta_initialised_directly_vals():
 def test_meta_basic_combine():
 
     class SomeMeta(BaseMeta):
-        number: Annotated[int, META_RULES.INHERIT_OR_OVERRIDE] = 1
+        number: Annotated[int, MetaRules.INHERIT_OR_OVERRIDE] = 1
         number_two: int = 2
 
     a = SomeMeta()
@@ -80,7 +80,7 @@ def test_meta_basic_combine():
 
 def test_meta_combine_without_default_value_on_field():
     class SomeMeta(BaseMeta):
-        number: int | INHERIT_VALUE = INHERIT_VALUE.AS_DEFAULT
+        number: int | InheritValue = InheritValue.AS_DEFAULT
 
     a = SomeMeta(number=1)
     b = SomeMeta()
@@ -92,19 +92,19 @@ def test_meta_combine_without_default_value_on_field():
     b = SomeMeta()
 
     result: SomeMeta = a & b
-    assert result.number is INHERIT_VALUE.AS_DEFAULT
+    assert result.number is InheritValue.AS_DEFAULT
 
 
 def test_meta_errors_when_do_not_inherit_has_no_default():
     with raises(PydanticMetaKitException):
 
         class SomeMeta(BaseMeta):
-            abstract: Annotated[bool, META_RULES.DO_NOT_INHERIT]
+            abstract: Annotated[bool, MetaRules.DO_NOT_INHERIT]
 
 
 def test_meta_combine_with_revert_to_default():
     class SomeMeta(BaseMeta):
-        abstract: Annotated[bool, META_RULES.DO_NOT_INHERIT] = False
+        abstract: Annotated[bool, MetaRules.DO_NOT_INHERIT] = False
 
     a = SomeMeta(abstract=True)
     b = SomeMeta()
@@ -131,12 +131,12 @@ def test_meta_accumulate_must_be_iterable():
     with raises(PydanticMetaKitException):
 
         class SomeMeta(BaseMeta):
-            things: Annotated[int, META_RULES.ACCUMULATE]
+            things: Annotated[int, MetaRules.ACCUMULATE]
 
 
 def test_meta_accumulate_with_list():
     class SomeMeta(BaseMeta):
-        things: Annotated[list, META_RULES.ACCUMULATE] = Field(default_factory=list)
+        things: Annotated[list, MetaRules.ACCUMULATE] = Field(default_factory=list)
 
     a = SomeMeta(things=["one"])
     b = SomeMeta(things=["two"])
@@ -152,7 +152,7 @@ def test_meta_accumulate_with_list():
 
 def test_meta_accumulate_with_set():
     class SomeMeta(BaseMeta):
-        things: Annotated[set, META_RULES.ACCUMULATE] = Field(default_factory=set)
+        things: Annotated[set, MetaRules.ACCUMULATE] = Field(default_factory=set)
 
     a = SomeMeta(things={"one"})
     b = SomeMeta(things={"two"})
@@ -163,7 +163,7 @@ def test_meta_accumulate_with_set():
 
 def test_meta_accumulate_with_dict():
     class SomeMeta(BaseMeta):
-        things: Annotated[dict, META_RULES.ACCUMULATE] = Field(default_factory=dict)
+        things: Annotated[dict, MetaRules.ACCUMULATE] = Field(default_factory=dict)
 
     a = SomeMeta(things={"one": "one"})
     b = SomeMeta(things={"two": "two"})
@@ -195,9 +195,9 @@ def test_meta_on_class_raises_error_if_inherit_field_is_not_declared_somewhere()
     with raises(PydanticMetaKitException):
 
         class SomeMeta(BaseMeta):
-            abstract: Annotated[bool, META_RULES.DO_NOT_INHERIT] = False
-            things: Annotated[list, META_RULES.ACCUMULATE] = Field(default_factory=list)
-            number: int | INHERIT_VALUE = INHERIT_VALUE.AS_DEFAULT
+            abstract: Annotated[bool, MetaRules.DO_NOT_INHERIT] = False
+            things: Annotated[list, MetaRules.ACCUMULATE] = Field(default_factory=list)
+            number: int | InheritValue = InheritValue.AS_DEFAULT
 
         class Root(BaseModel):
             pass
@@ -217,9 +217,9 @@ def test_meta_on_class_is_right_type():
     with raises(PydanticMetaKitException):
 
         class SomeMeta(BaseMeta):
-            abstract: Annotated[bool, META_RULES.DO_NOT_INHERIT] = False
-            things: Annotated[list, META_RULES.ACCUMULATE] = Field(default_factory=list)
-            number: int | INHERIT_VALUE = INHERIT_VALUE.AS_DEFAULT
+            abstract: Annotated[bool, MetaRules.DO_NOT_INHERIT] = False
+            things: Annotated[list, MetaRules.ACCUMULATE] = Field(default_factory=list)
+            number: int | InheritValue = InheritValue.AS_DEFAULT
 
         class Bullshit(BaseMeta):
             pass
@@ -244,11 +244,9 @@ def test_meta_on_class_is_right_type():
 
 def test_meta_on_class():
     class SomeMeta(BaseMeta):
-        abstract: Annotated[bool, META_RULES.DO_NOT_INHERIT] = False
-        things: Annotated[list[str], META_RULES.ACCUMULATE] = Field(
-            default_factory=list
-        )
-        number: int | INHERIT_VALUE = INHERIT_VALUE.AS_DEFAULT
+        abstract: Annotated[bool, MetaRules.DO_NOT_INHERIT] = False
+        things: Annotated[list[str], MetaRules.ACCUMULATE] = Field(default_factory=list)
+        number: int | InheritValue = InheritValue.AS_DEFAULT
 
     class Root(BaseModel):
         pass

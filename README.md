@@ -39,14 +39,14 @@ First, define your Meta class:
 ```python
 from typing import Annotated
 from pydantic import Field
-from pydantic_meta_kit import BaseMeta, META_RULES, INHERIT_VALUE
+from pydantic_meta_kit import BaseMeta, MetaRules, InheritValue
 
 class MyMeta(BaseMeta):
-    abstract: Annotated[bool, META_RULES.DO_NOT_INHERIT] = False
-    things: Annotated[list[str], META_RULES.ACCUMULATE] = Field(
+    abstract: Annotated[bool, MetaRules.DO_NOT_INHERIT] = False
+    things: Annotated[list[str], MetaRules.ACCUMULATE] = Field(
         default_factory=list
     )
-    number: int | INHERIT_VALUE = INHERIT_VALUE.AS_DEFAULT
+    number: int | InheritValue = InheritValue.AS_DEFAULT
 ```
 
 Then, inherit from `WithMeta` generic, i.e. `WithMeta[<YourMetaClass>]`:
@@ -83,20 +83,20 @@ Cat._meta.things == ["a", "b", "c", "d"] # <- Values accumulated
 Cat._meta.number == 2 # <- Inherited from Animal._meta
 ```
 
-Note that type annotations are `Annotated` with additional `META_RULES` to determine how inheritance will work.
+Note that type annotations are `Annotated` with additional `MetaRules` to determine how inheritance will work.
 
 ### MetaRules rules
 
-The `META_RULES` enum defines three rules for how inheritance should work.
+The `MetaRules` enum defines three rules for how inheritance should work.
 
 - `DO_NOT_INHERIT`: The value will be reset to the default, which must be provided.
     - In the above example, `abstract` will be reset to `False` by inheriting classes, unless explicitly set to `True` 
 - `ACCUMULATE`: With a `list`, `set`, or `dict`, accumulate (or override in the case of dict) previous values into one big `list`, `set` or `dict`.
 - `INHERIT_OR_OVERRIDE`: The default behaviour (use is optional). If a value is not set on an inheriting class, it will use the parent class's value.
 
-The `INHERIT_VALUE` type and `INHERIT_VALUE.AS_DEFAULT` exist to make an argument optional on a child class's `_meta`. Otherwise, Pydantic will demand that you provide a value. i.e.
+The `InheritValue` type and `InheritValue.AS_DEFAULT` exist to make an argument optional on a child class's `_meta`. Otherwise, Pydantic will demand that you provide a value. i.e.
 
 ```python
-number: int | INHERIT_VALUE = INHERIT_VALUE.AS_DEFAULT
+number: int | InheritValue = InheritValue.AS_DEFAULT
 ```
 does not need to be provided in all the subclasses. Whereas just `number: int` will obviously be demanded by Pydantic when you try to initialise a child class's `_meta`.
