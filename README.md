@@ -43,9 +43,7 @@ from pydantic_meta_kit import BaseMeta, MetaRules, InheritValue
 
 class MyMeta(BaseMeta):
     abstract: Annotated[bool, MetaRules.DO_NOT_INHERIT] = False
-    things: Annotated[list[str], MetaRules.ACCUMULATE] = Field(
-        default_factory=list
-    )
+    things: Annotated[list[str], MetaRules.ACCUMULATE] = Field(default_factory=list)
     number: int | InheritValue = InheritValue.AS_DEFAULT
 ```
 
