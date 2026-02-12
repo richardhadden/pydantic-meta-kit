@@ -92,7 +92,8 @@ Cat._meta.things == ["a", "b"]      # <- Inherited from Entity.things
 Cat._meta.number == 2               # <- Explicitly set to 2
 
 Ragdoll._meta.abstract is False     # <- Does not inherit; reset to default
-Ragdoll._meta.things == ["a", "b", "c", "d"] # <- Accumulated from Entity.things and Ragdoll.things
+Ragdoll._meta.things == ["a", "b", "c", "d"] 
+                            # ^- Accumulated from Entity.things + Ragdoll.things
 Ragdoll._meta.number == 2          # <- Inherited from Cat.number
 ```
 n.b. `Entity._meta` is annotated with `ClassVar[MyMeta]`. This is not strictly necessary (some other type assigned to `_meta` in a subclass will be caught at runtime) but this provides nice validation in your editor.
