@@ -24,12 +24,13 @@ You would like to define a `_meta` attribute on the classes to store some miscel
 
 You would also like to not have to write a `_meta` attribute on every single class in your hierarchy.
 
-But you would like to use `_meta` on every class, and just be able to override a particular option.
+But you would like to *have* `_meta` on every class, and just be able to override a particular option.
 
 And some options shouldn't inherit. (Like the `Meta` class in Django — it keeps all the parent values, but somehow forgets about `Abstract`.) 
 
 And _some_ options (options that are lists) should accumulate.
 
+And, you don't want to have to write loads of logic...
 
 ## Then: this is a handy toolkit for defining your own `_meta` objects on your classes
 
