@@ -19,7 +19,7 @@ class Animal(Entity):
 class Cat(Animal):
     pass
 
-class TabbyCat(Cat):
+class Ragdoll(Cat):
     pass
 ```
 
@@ -73,7 +73,7 @@ class Animal(Entity):
 class Cat(Animal):
     _meta = MyMeta(abstract=True, number=2)
 
-class TabbyCat(Cat):
+class Ragdoll(Cat):
     _meta = MyMeta(things=["c", "d"])
 
 
@@ -91,9 +91,9 @@ Cat._meta.abstract is True          # <- Explicitly set to True
 Cat._meta.things == ["a", "b"]      # <- Inherited from Entity.things
 Cat._meta.number == 2               # <- Explicitly set to 2
 
-TabbyCat._meta.abstract is False     # <- Does not inherit; reset to default
-TabbyCat._meta.things == ["a", "b", "c", "d"] # <- Accumulated from Entity.things and TabbyCat.things
-TabbyCat._meta.number == 2          # <- Inherited from Cat.number
+Ragdoll._meta.abstract is False     # <- Does not inherit; reset to default
+Ragdoll._meta.things == ["a", "b", "c", "d"] # <- Accumulated from Entity.things and Ragdoll.things
+Ragdoll._meta.number == 2          # <- Inherited from Cat.number
 ```
 n.b. `Entity._meta` is annotated with `ClassVar[MyMeta]`. This is not strictly necessary (some other type assigned to `_meta` in a subclass will be caught at runtime) but this provides nice validation in your editor.
 
