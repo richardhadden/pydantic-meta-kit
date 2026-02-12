@@ -79,19 +79,19 @@ class TabbyCat(Cat):
 
 
 
-Entity._meta.abstract == True
+Entity._meta.abstract is True
 Entity._meta.things = ["a", "b"]
 Entity._meta.number = 1
 
-Animal._meta.abstract == False      # <- Does not inherit; reset to default
+Animal._meta.abstract is False      # <- Does not inherit; reset to default
 Animal._meta.things == ["a", "b"]   # <- Inherited from Entity.things
 Animal._meta.number == 1            # <- Inherited from Entity.number
 
-Cat._meta.abstract == True          # <- Explicitly set to True
+Cat._meta.abstract is True          # <- Explicitly set to True
 Cat._meta.things == ["a", "b"]      # <- Inherited from Entity.things
 Cat._meta.number == 2               # <- Explicitly set to 2
 
-TabbyCat._meta.abstract == False     # <- Does not inherit; reset to default
+TabbyCat._meta.abstract is False     # <- Does not inherit; reset to default
 TabbyCat._meta.things == ["a", "b", "c", "d"] # <- Accumulated from Entity.things and TabbyCat.things
 TabbyCat._meta.number == 2          # <- Inherited from Cat.number
 ```
