@@ -48,7 +48,7 @@ def test_meta_initialised_directly_vals():
     """
 
     class SomeMeta(BaseMeta):
-        number: Annotated[int, META_RULES.REPLACE_IF_NOT_DEFAULT] = 1
+        number: Annotated[int, META_RULES.INHERIT_OR_OVERRIDE] = 1
 
     a = SomeMeta()
     b = SomeMeta(number=1)
@@ -60,7 +60,7 @@ def test_meta_initialised_directly_vals():
 def test_meta_basic_combine():
 
     class SomeMeta(BaseMeta):
-        number: Annotated[int, META_RULES.REPLACE_IF_NOT_DEFAULT] = 1
+        number: Annotated[int, META_RULES.INHERIT_OR_OVERRIDE] = 1
         number_two: int = 2
 
     a = SomeMeta()

@@ -15,7 +15,7 @@ class META_RULES(Enum):
     """Do not inherit this value; instead reset to default when inherited"""
     ACCUMULATE = 1
     """Accumulate values from list, set or dict through inheritance"""
-    REPLACE_IF_NOT_DEFAULT = 2
+    INHERIT_OR_OVERRIDE = 2
     """Follow normal inheritance procedure"""
 
 
@@ -24,7 +24,7 @@ def get_field_rule(field: FieldInfo) -> META_RULES:
     if field.metadata:
         return field.metadata[0]
     else:
-        return META_RULES.REPLACE_IF_NOT_DEFAULT
+        return META_RULES.INHERIT_OR_OVERRIDE
 
 
 class InheritValueMetaclass(type):
@@ -113,7 +113,7 @@ class BaseMeta(BaseModel):
     ```
     """
 
-    model_config = {"arbitrary_types_allowed": True}
+    model_config = {"arbitrary_types_allowed": True, "frozen": True}
 
     _initialised_directly: set[str] = PrivateAttr(default_factory=set)
 
