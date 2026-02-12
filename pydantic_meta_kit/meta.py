@@ -19,7 +19,7 @@ class MetaRules(Enum):
     """Follow normal inheritance procedure"""
 
 
-def get_field_rule(field: FieldInfo) -> MetaRules:
+def _get_field_rule(field: FieldInfo) -> MetaRules:
     """Extracts the correct `META_RULE` from a field definition"""
     if field.metadata:
         return field.metadata[0]
@@ -27,7 +27,7 @@ def get_field_rule(field: FieldInfo) -> MetaRules:
         return MetaRules.INHERIT_OR_OVERRIDE
 
 
-class InheritValueMetaclass(type):
+class _InheritValueMetaclass(type):
     """Metaclass for INHERIT_VALUE, adding a property to the class that
     returns a singleton instance of itself, so that this works correctly:
 
@@ -42,7 +42,7 @@ class InheritValueMetaclass(type):
         return cls._singleton_instance
 
 
-class InheritValue(metaclass=InheritValueMetaclass):
+class InheritValue(metaclass=_InheritValueMetaclass):
     """Type marker for field that does not need to be declared on a `_meta` object,
     but must be inherited from a parent's `_meta`.
 
@@ -127,7 +127,7 @@ class BaseMeta(BaseModel):
         accumulations_invalid: list[str] = []
         for field_name, model_field in cls.model_fields.items():
             # Checks that all fields that are DO_NOT_INHERIT provide a default value
-            if get_field_rule(model_field) == MetaRules.DO_NOT_INHERIT and (
+            if _get_field_rule(model_field) == MetaRules.DO_NOT_INHERIT and (
                 isinstance(model_field.default, PydanticUndefinedType)
                 or isinstance(
                     model_field.get_default(call_default_factory=True),
@@ -137,7 +137,7 @@ class BaseMeta(BaseModel):
                 do_not_inherits_invalid.append(field_name)
 
             # Checks that fields that are ACCUMULATE are of type Iterable
-            if get_field_rule(model_field) == MetaRules.ACCUMULATE and (
+            if _get_field_rule(model_field) == MetaRules.ACCUMULATE and (
                 (
                     inspect.isclass(model_field.annotation)
                     and not issubclass(model_field.annotation, Iterable)
@@ -178,7 +178,7 @@ class BaseMeta(BaseModel):
         merged_dict: dict[str, Any] = {}
 
         for field_name, model_field in self.__class__.model_fields.items():
-            field_rule: MetaRules = get_field_rule(model_field)
+            field_rule: MetaRules = _get_field_rule(model_field)
 
             # If field should be accumulated, use the _merge_field function
             # to do it
