@@ -1,9 +1,9 @@
 import inspect
 from collections.abc import Iterable
 from enum import Enum
-from typing import Any, ClassVar, cast
+from typing import Any, ClassVar
 
-from pydantic import BaseModel, PrivateAttr, ValidationError
+from pydantic import BaseModel, ValidationError
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefinedType
 
@@ -21,22 +21,22 @@ class MetaRules(Enum):
 
 def _get_field_rule(field: FieldInfo) -> MetaRules:
     """Extracts the correct `META_RULE` from a field definition"""
-    if field.metadata:
-        return field.metadata[0]
-    else:
-        return MetaRules.INHERIT_OR_OVERRIDE
+    for item in field.metadata:
+        if isinstance(item, MetaRules):
+            return item
+    return MetaRules.INHERIT_OR_OVERRIDE
 
 
 class _InheritValueMetaclass(type):
-    """Metaclass for INHERIT_VALUE, adding a property to the class that
+    """Metaclass for InheritValue, adding a property to the class that
     returns a singleton instance of itself, so that this works correctly:
 
-    `number: int | INHERIT_VALUE = INHERIT_VALUE.AS_DEFAULT`
+    `number: int | InheritValue = InheritValue.AS_DEFAULT`
     """
 
     @property
     def AS_DEFAULT(cls):
-        """Use `INHERIT_VALUE` as default value"""
+        """Use `InheritValue` as default value"""
         if not hasattr(cls, "_singleton_instance"):
             cls._singleton_instance = cls()
         return cls._singleton_instance
@@ -46,13 +46,13 @@ class InheritValue(metaclass=_InheritValueMetaclass):
     """Type marker for field that does not need to be declared on a `_meta` object,
     but must be inherited from a parent's `_meta`.
 
-    `INHERIT_VALUE.AS_DEFAULT` must be used as the default value.
+    `InheritValue.AS_DEFAULT` must be used as the default value.
 
     Usage:
 
     ```
     class SomeMeta(BaseMeta):
-        number: int | INHERIT_VALUE = INHERIT_VALUE.AS_DEFAULT
+        number: int | InheritValue = InheritValue.AS_DEFAULT
     ```
     """
 
@@ -64,12 +64,12 @@ def _merge_fields[T: list | set | dict](
 ) -> T:
     """Utility to merge lists, sets, dicts correctly"""
     if right is None:
-        return left
+        return field_type(left)
 
-    elif field_type is dict and type(left) is dict and type(right) is dict:
-        return field_type(**left, **right)
+    elif issubclass(field_type, dict):
+        return field_type({**left, **right})  # type: ignore
     else:
-        return field_type([*left, *right])
+        return field_type([*left, *right])  # type: ignore
 
 
 def _generate_initialisation_error_message(
@@ -83,7 +83,7 @@ def _generate_initialisation_error_message(
         error_msg += (
             f"field{'s' if len(do_not_inherits_invalid) > 1 else ''} {', '.join(f"'{f}'" for f in do_not_inherits_invalid)} "
             f"{'are' if len(do_not_inherits_invalid) > 1 else 'is'} annotated with "
-            f"META_RULES.DO_NOT_INHERIT but do{'' if len(do_not_inherits_invalid) > 1 else 'es'} not provide a default value "
+            f"MetaRules.DO_NOT_INHERIT but do{'' if len(do_not_inherits_invalid) > 1 else 'es'} not provide a default value "
             "or default_factory"
         )
     if do_not_inherits_invalid and accumulations_invalid:
@@ -92,7 +92,7 @@ def _generate_initialisation_error_message(
         error_msg += (
             f"field{'s' if len(accumulations_invalid) > 1 else ''} {', '.join(f"'{f}'" for f in accumulations_invalid)} "
             f"{'are' if len(accumulations_invalid) > 1 else 'is'} annotated with "
-            f"META_RULES.ACCUMULATE but {'are' if len(accumulations_invalid) > 1 else 'is'} not of type Iterable"
+            f"MetaRules.ACCUMULATE but {'are' if len(accumulations_invalid) > 1 else 'is'} not of type Iterable"
         )
     return error_msg
 
@@ -105,20 +105,40 @@ class BaseMeta(BaseModel):
 
     ```
     class SomeMeta(BaseMeta):
-        abstract: Annotated[bool, META_RULES.DO_NOT_INHERIT] = False
-        things: Annotated[list[str], META_RULES.ACCUMULATE] = Field(
+        abstract: Annotated[bool, MetaRules.DO_NOT_INHERIT] = False
+        things: Annotated[list[str], MetaRules.ACCUMULATE] = Field(
             default_factory=list
         )
-        number: int | INHERIT_VALUE = INHERIT_VALUE.AS_DEFAULT
+        number: int | InheritValue = InheritValue.AS_DEFAULT
     ```
     """
 
-    model_config = {"arbitrary_types_allowed": True, "frozen": True}
+    # `validate_by_name` is needed so that merged values (keyed by field name) are
+    # accepted for fields that declare an alias
+    model_config = {
+        "arbitrary_types_allowed": True,
+        "frozen": True,
+        "validate_by_name": True,
+        "validate_by_alias": True,
+    }
 
-    _initialised_directly: set[str] = PrivateAttr(default_factory=set)
+    meta_key: ClassVar[str] = "_meta"
+    """Name of the class attribute that instances of this meta class are attached
+    to by `WithMeta`. Override in a subclass to allow several different metas on
+    the same class, e.g. `meta_key = "_interface_meta"`."""
+
+    @property
+    def _initialised_directly(self) -> set[str]:
+        """Names of fields that were explicitly provided on instantiation"""
+        return set(self.model_fields_set)
 
     @classmethod
     def __pydantic_init_subclass__(cls, **_):
+        if not (cls.meta_key.isidentifier() and cls.meta_key.startswith("_")):
+            raise PydanticMetaKitException(
+                f"Error with <{cls.__name__}>: meta_key '{cls.meta_key}' must be a valid "
+                "identifier starting with an underscore"
+            )
         cls.run_initialisation_checks()
 
     @classmethod
@@ -155,53 +175,50 @@ class BaseMeta(BaseModel):
                 )
             )
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        # Keep track of whether keys have been explicitly provided in instantiation
-        self._initialised_directly.update(kwargs.keys())
-
     def __and__[T: BaseMeta](self: T, child: T | None) -> T:
+        """Merge this (parent) meta with a child meta according to the field rules,
+        returning a new meta object. `child` may be `None`, meaning the child
+        declares no meta of its own."""
 
-        # Check self and child have same time, for sanity
-        if child and type(self) is not type(child):
+        # Check self and child have same type, for sanity
+        if child is not None and type(self) is not type(child):
             raise PydanticMetaKitException(
                 "Cannot merge two Meta objects of different types"
             )
 
-        left_dict: dict[str, Any] = self.model_dump()
-        if child is None:
-            right_dict = {}
-        else:
-            right_dict: dict[str, Any] = child.model_dump()
-
         merged_dict: dict[str, Any] = {}
 
-        for field_name, model_field in self.__class__.model_fields.items():
+        for field_name, model_field in type(self).model_fields.items():
             field_rule: MetaRules = _get_field_rule(model_field)
+            left = getattr(self, field_name)
 
-            # If field should be accumulated, use the _merge_field function
-            # to do it
+            # A field counts as set on the child if it was explicitly provided
+            # and is not just the `InheritValue` placeholder
+            child_has_value = (
+                child is not None
+                and field_name in child.model_fields_set
+                and not isinstance(getattr(child, field_name), InheritValue)
+            )
+            right = getattr(child, field_name) if child_has_value else None
+
+            # Accumulated fields are combined
             if field_rule == MetaRules.ACCUMULATE:
                 merged_dict[field_name] = _merge_fields(
                     field_type=type(model_field.get_default(call_default_factory=True)),
-                    left=left_dict[field_name],
-                    right=right_dict.get(field_name, None),
+                    left=left,
+                    right=right,
                 )
 
-            # A field defined explicitly on a meta object should be used
-            elif child and field_name in child._initialised_directly:
-                merged_dict[field_name] = right_dict[field_name]
+            # A field defined explicitly on the child meta object is used
+            elif child_has_value:
+                merged_dict[field_name] = right
 
-            # A field not defined explicitly and that can inherit
-            # should inherit
-            elif (
-                not child or field_name not in child._initialised_directly
-            ) and field_rule != MetaRules.DO_NOT_INHERIT:
-                merged_dict[field_name] = left_dict[field_name]
+            # A field not defined explicitly and that can inherit, inherits
+            elif field_rule != MetaRules.DO_NOT_INHERIT:
+                merged_dict[field_name] = left
 
         # Pile everything into a new meta object and return
-        return self.__class__(**merged_dict)
+        return type(self)(**merged_dict)
 
 
 class WithMeta[T: BaseMeta](BaseModel):
@@ -212,102 +229,125 @@ class WithMeta[T: BaseMeta](BaseModel):
     `_meta` attributes on subclasses inherit the correct values from their parent class's `_meta`,
     following the rules defined in your `BaseMeta` class.
 
+    The attribute name is taken from the `meta_key` of the meta class (default `_meta`), and
+    several `WithMeta[...]` mixins with different keys may be combined on one class.
+
     Usage:
 
     ```
     class MyMeta(BaseMeta):
-        abstract: Annotated[bool, META_RULES.DO_NOT_INHERIT] = False
-        things: Annotated[list[int], META_RULES.ACCUMULATE] = Field(default_factory=list)
-        number: int | INHERIT_VALUE = INHERIT_VALUE.AS_DEFAULT
+        abstract: Annotated[bool, MetaRules.DO_NOT_INHERIT] = False
+        things: Annotated[list[int], MetaRules.ACCUMULATE] = Field(default_factory=list)
+        number: int | InheritValue = InheritValue.AS_DEFAULT
 
-    class Entity(BaseModel, WithMeta[MyMeta]):
+    class Entity(WithMeta[MyMeta]):
         _meta = MyMeta(abstract=True, things=[1, 2, 3], number=1)
 
     class Thing(Entity):
         _meta = MyMeta(number=2, things=[4])
     ```
 
-    `Thing._meta.abtract == False` (not inherited)
+    `Thing._meta.abstract == False` (not inherited)
     `Thing._meta.number == 2` (overridden)
     `Thing._meta.things == [1, 2, 3, 4]` (accumulated)
+
+    With a custom key:
+
+    ```
+    class InterfaceMeta(BaseMeta):
+        meta_key = "_interface_meta"
+        ...
+
+    class Entity(WithMeta[MyMeta], WithMeta[InterfaceMeta]):
+        _interface_meta: ClassVar[InterfaceMeta] = InterfaceMeta(...)  # annotation optional
+    ```
     """
 
     _meta: ClassVar[T]  # type: ignore
-    _meta_class: ClassVar[type[T]]  # type: ignore
+    _meta_classes: ClassVar[dict[str, type[BaseMeta]]] = {}
+    """Mapping of attribute name -> meta class for every `WithMeta[...]` in the bases"""
 
     @classmethod
     def __pydantic_init_subclass__(cls, **_) -> None:
+        origin = cls.__pydantic_generic_metadata__["origin"]
 
-        # Is the (sub)class being initialised *this* class?
-        initialising_class_is_this = (
-            cls.__pydantic_generic_metadata__["origin"] is __class__  # type: ignore
-        )
-
-        # If initialising *this* class, set the type of BaseMeta for the object;
-        # Note that actualising a the generic WithMeta[T] with any actual BaseMeta class
-        # means that these are in fact two classes, and there is no overriding
-        if initialising_class_is_this:
-            __class__._meta_class = cls.__pydantic_generic_metadata__["args"][0]  # type: ignore
-
-        if initialising_class_is_this:
+        # If initialising a `WithMeta[SomeMeta]` parametrisation, just record the meta class
+        # on that (generic-alias) class; there is no overriding to do
+        if origin is WithMeta:
+            args = cls.__pydantic_generic_metadata__["args"]
+            if args and isinstance(args[0], type) and issubclass(args[0], BaseMeta):
+                cls._meta_classes = {args[0].meta_key: args[0]}
             return
 
-        # Does the class being initialised have its own "_meta" object (rather than inheriting)?
-        has_own_meta: bool = "_meta" in cls.__dict__
+        # Collect the meta classes of all `WithMeta[...]` parametrisations in the bases
+        meta_classes: dict[str, type[BaseMeta]] = {}
+        for klass in cls.mro()[1:]:
+            for key, meta_class in klass.__dict__.get("_meta_classes", {}).items():
+                if meta_classes.setdefault(key, meta_class) is not meta_class:
+                    raise PydanticMetaKitException(
+                        f"<{cls.__name__}>: meta classes {meta_classes[key].__name__} and "
+                        f"{meta_class.__name__} both use the key '{key}'"
+                    )
+        cls._meta_classes = meta_classes
 
-        # Extract the meta_class that we are going to use
-        meta_class: type[BaseMeta] = cast(type[BaseMeta], cls._meta_class)
+        # A parametrisation of a generic model (`Entity[int]`) is the same class as far as
+        # meta is concerned: copy the metas unchanged rather than "inheriting" them
+        if origin is not None and issubclass(origin, WithMeta):
+            for key in meta_classes:
+                setattr(cls, key, getattr(origin, key))
+            return
 
-        if has_own_meta and not isinstance(cls.__dict__["_meta"], meta_class):
+        for key, meta_class in meta_classes.items():
+            cls._resolve_meta(key, meta_class)
+
+    @classmethod
+    def _resolve_meta(cls, key: str, meta_class: type[BaseMeta]) -> None:
+
+        # Pydantic treats an unannotated `_name = value` as a private attribute; when it
+        # holds a meta object, turn it back into an ordinary class attribute
+        private = cls.__private_attributes__.get(key)
+        if private is not None and key not in cls.__dict__:
+            cls.__private_attributes__.pop(key)
+            cls.__class_vars__.add(key)
+            setattr(cls, key, private.default)
+
+        # Does the class being initialised have its own meta object (rather than inheriting)?
+        has_own_meta: bool = key in cls.__dict__
+        own_meta = cls.__dict__.get(key)
+
+        if has_own_meta and not isinstance(own_meta, meta_class):
             raise PydanticMetaKitException(
-                f"<{cls.__name__}>: _meta attribute must be of type {meta_class.__name__}, not {type(cls.__dict__['_meta']).__name__}"
+                f"<{cls.__name__}>: {key} attribute must be of type {meta_class.__name__}, not {type(own_meta).__name__}"
             )
 
-        # Get a list of parent classes for cls
-        parent_classes: list[type] = []
-        for c in cls.mro():
-            if c is not cls:
-                parent_classes.append(c)
+        # The nearest parent's meta has already been merged with all of its ancestors
+        parent_meta: BaseMeta | None = None
+        for parent in cls.mro()[1:]:
+            if isinstance(candidate := parent.__dict__.get(key), BaseMeta):
+                parent_meta = candidate
+                break
 
-        # Get the meta classes for parent classes
-        parents_metas = []
-        for parent in parent_classes:
-            if (parent_meta := parent.__dict__.get("_meta"), None) and isinstance(
-                parent_meta, BaseMeta
-            ):
-                parents_metas.append(parent_meta)
+        if parent_meta is None:
+            # If no meta is found anywhere, see if it can be instantiated just using
+            # defaults, otherwise raise an error
+            if not has_own_meta:
+                try:
+                    setattr(cls, key, meta_class())
+                except ValidationError:
+                    raise PydanticMetaKitException(
+                        f"<{cls.__name__}>: a {key} field with instance of type {meta_class.__name__} must "
+                        "be declared somewhere in the model hierarchy, or have all-default arguments"
+                    )
+        else:
+            # Merge with the parent's meta; with no own meta this resets non-heritable fields
+            setattr(cls, key, parent_meta & own_meta)
 
-        # If no _meta is found anywhere, see if it can be instantiated just using
-        # defaults, otherwise raise an error
-        if not has_own_meta and not parents_metas:
-            try:
-                cls._meta = meta_class()  # type: ignore
-
-            except ValidationError:
-                raise PydanticMetaKitException(
-                    f"<{cls.__name__}>: a _meta field with instance of type {meta_class.__name__} must "
-                    "be declared somewhere in the model hierarchy, or have all-default arguments"
-                )
-
-        # If no _meta on cls, but parent meta, merge last parent meta with None to reset
-        # non-heritable defaults
-        elif not has_own_meta and parents_metas:
-            cls._meta = parents_metas[-1] & None
-
-        # If cls has its own meta, merge the fields from the parent meta that
-        # are not on this cls's meta
-        elif has_own_meta and parents_metas:
-            cls._meta = parents_metas[-1] & cls.__dict__["_meta"]
-
-        # We're good because it does!
-        elif has_own_meta:
-            pass
-
-        # Check there are no INHERIT_VALUE fields that somewhere in the chain
+        # Check there are no InheritValue fields that somewhere in the chain
         # have not actually been able to inherit a value
-        for k, v in cls._meta.model_dump().items():
-            if isinstance(v, InheritValue):
+        final_meta: BaseMeta = getattr(cls, key)
+        for field_name in type(final_meta).model_fields:
+            if isinstance(getattr(final_meta, field_name), InheritValue):
                 raise PydanticMetaKitException(
-                    f"<{cls.__name__}>: field '{k}' of _meta instance can inherit a value, "
+                    f"<{cls.__name__}>: field '{field_name}' of {key} instance can inherit a value, "
                     "but this is never declared in the object hierarchy"
                 )

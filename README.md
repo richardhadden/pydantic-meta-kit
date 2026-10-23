@@ -78,7 +78,7 @@ class Ragdoll(Cat):
 
 
 Entity._meta.abstract is True
-Entity._meta.things = ["a", "b"]
+Entity._meta.things == ["a", "b"]
 Entity._meta.number = 1
 
 Animal._meta.abstract is False      # <- Does not inherit; reset to default
@@ -115,6 +115,28 @@ number: int | InheritValue = InheritValue.AS_DEFAULT
 ```
 does not need to be provided in all the subclasses. Whereas just `number: int` will obviously be demanded by Pydantic when you try to initialise a child class's `_meta`, even if you don't need to define it again.
 
+
+### Multiple metas / custom attribute names
+
+By default a meta lives on `_meta`. Set `meta_key` on your meta class to use another name, and combine several `WithMeta[...]` mixins on one class:
+
+```python
+class InterfaceMeta(BaseMeta):
+    meta_key = "_interface_meta"
+    methods: Annotated[list[str], MetaRules.ACCUMULATE] = Field(default_factory=list)
+
+class Entity(Root, WithMeta[MyMeta], WithMeta[InterfaceMeta]):
+    _meta: ClassVar[MyMeta] = MyMeta(number=1)
+    _interface_meta: ClassVar[InterfaceMeta] = InterfaceMeta(methods=["save"])
+
+class Cat(Entity):
+    _interface_meta = InterfaceMeta(methods=["purr"])
+
+Cat._interface_meta.methods == ["save", "purr"]
+Cat._meta.number == 1
+```
+
+Each key must be unique on a class, and must start with an underscore.
 
 ### Would be nice to...
 
