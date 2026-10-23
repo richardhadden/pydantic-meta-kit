@@ -102,6 +102,46 @@ def test_meta_errors_when_do_not_inherit_has_no_default():
             abstract: Annotated[bool, MetaRules.DO_NOT_INHERIT]
 
 
+def test_do_not_inherit_accepts_a_default_factory():
+    class SomeMeta(BaseMeta):
+        names: Annotated[list[str], MetaRules.DO_NOT_INHERIT] = Field(
+            default_factory=list
+        )
+
+    class Root(WithMeta[SomeMeta]):
+        _meta = SomeMeta(names=["root"])
+
+    class Child(Root):
+        pass
+
+    class Own(Root):
+        _meta = SomeMeta(names=["own"])
+
+    assert Root._meta.names == ["root"]
+    # not inherited: the child has the default, made afresh (not the parent's list)
+    assert Child._meta.names == []
+    assert Child._meta.names is not Root._meta.names
+    assert Own._meta.names == ["own"]
+
+
+def test_do_not_inherit_with_a_mutable_factory_value_is_not_shared_between_classes():
+    class SomeMeta(BaseMeta):
+        names: Annotated[list[str], MetaRules.DO_NOT_INHERIT] = Field(
+            default_factory=list
+        )
+
+    class Root(WithMeta[SomeMeta]):
+        pass
+
+    class A(Root):
+        pass
+
+    class B(Root):
+        pass
+
+    assert A._meta.names is not B._meta.names
+
+
 def test_meta_combine_with_revert_to_default():
     class SomeMeta(BaseMeta):
         abstract: Annotated[bool, MetaRules.DO_NOT_INHERIT] = False

@@ -147,12 +147,11 @@ class BaseMeta(BaseModel):
         accumulations_invalid: list[str] = []
         for field_name, model_field in cls.model_fields.items():
             # Checks that all fields that are DO_NOT_INHERIT provide a default value
-            if _get_field_rule(model_field) == MetaRules.DO_NOT_INHERIT and (
-                isinstance(model_field.default, PydanticUndefinedType)
-                or isinstance(
-                    model_field.get_default(call_default_factory=True),
-                    PydanticUndefinedType,
-                )
+            # (`get_default` runs a `default_factory`; `default` alone is undefined when
+            # there is one)
+            if _get_field_rule(model_field) == MetaRules.DO_NOT_INHERIT and isinstance(
+                model_field.get_default(call_default_factory=True),
+                PydanticUndefinedType,
             ):
                 do_not_inherits_invalid.append(field_name)
 
